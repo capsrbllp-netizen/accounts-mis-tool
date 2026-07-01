@@ -1,33 +1,75 @@
-// Google Apps Script — paste this entire file into script.google.com
-// Appends each MIS submission as a new row in the active Google Sheet.
+const SHEET_NAME = "MIS Submissions";
 
-const SHEET_NAME = "MIS Submissions"; // Change if you want a different tab name
+function doGet(e) {
+  try {
+    const action = e.parameter.action;
+
+    if (action === 'get') {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getSheetByName(SHEET_NAME);
+
+      if (!sheet || sheet.getLastRow() < 2) {
+        return jsonResponse({ status: 'ok', rows: [] });
+      }
+
+      const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      const data    = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+
+      const rows = data.map((row, i) => {
+        const obj = {};
+        headers.forEach((h, j) => obj[camelCase(h)] = row[j]);
+        obj.rowIndex = i + 2; // actual sheet row number (1-indexed, row 1 = header)
+        return obj;
+      });
+
+      return jsonResponse({ status: 'ok', rows: rows.reverse() }); // newest first
+    }
+
+    return jsonResponse({ status: 'error', message: 'Unknown action' });
+
+  } catch (err) {
+    return jsonResponse({ status: 'error', message: err.message });
+  }
+}
 
 function doPost(e) {
   try {
-    const data = e.parameter;
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const data   = e.parameter;
+    const action = data.action;
+    const ss     = SpreadsheetApp.getActiveSpreadsheet();
 
+    // ── Save management remark ──────────────────────────────────────────────
+    if (action === 'remark') {
+      let sheet = ss.getSheetByName(SHEET_NAME);
+      if (!sheet) return jsonResponse({ status: 'error', message: 'Sheet not found' });
+
+      const rowIndex  = Number(data.rowIndex);
+      const lastCol   = sheet.getLastColumn();
+      const headers   = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+      // Find or create "Management Remark" column
+      let remarkCol = headers.indexOf('Management Remark') + 1;
+      if (remarkCol === 0) {
+        remarkCol = lastCol + 1;
+        sheet.getRange(1, remarkCol).setValue('Management Remark').setFontWeight('bold').setBackground('#1a56db').setFontColor('#ffffff');
+      }
+
+      sheet.getRange(rowIndex, remarkCol).setValue(data.mgmtRemark || '');
+      return jsonResponse({ status: 'ok' });
+    }
+
+    // ── New MIS submission ──────────────────────────────────────────────────
     let sheet = ss.getSheetByName(SHEET_NAME);
 
-    // Create the sheet and header row on first run
     if (!sheet) {
       sheet = ss.insertSheet(SHEET_NAME);
       sheet.appendRow([
-        "Submitted At",
-        "Name",
-        "Date",
-        "Invoices Processed",
-        "Invoice Value (₹)",
-        "Payments Collected (₹)",
-        "Payments Pending (₹)",
-        "Reconciliation Status",
-        "Reconciliation Remarks",
-        "Pending Tasks / Follow-ups",
-        "Additional Notes"
+        'Submitted At', 'Name', 'Date', 'Invoices Processed',
+        'Invoice Value (₹)', 'Payments Collected (₹)', 'Payments Pending (₹)',
+        'Reconciliation Status', 'Reconciliation Remarks',
+        'Pending Tasks / Follow-ups', 'Additional Notes'
       ]);
-      // Bold the header row
-      sheet.getRange(1, 1, 1, 11).setFontWeight("bold").setBackground("#1a56db").setFontColor("#ffffff");
+      sheet.getRange(1, 1, 1, 11).setFontWeight('bold').setBackground('#1a56db').setFontColor('#ffffff');
       sheet.setFrozenRows(1);
     }
 
@@ -45,36 +87,22 @@ function doPost(e) {
       data.notes
     ]);
 
-    return ContentService
-      .createTextOutput(JSON.stringify({ status: "ok" }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({ status: 'ok' });
 
   } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ status: "error", message: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({ status: 'error', message: err.message });
   }
 }
 
-// Optional: test this function manually inside the Apps Script editor
-function testPost() {
-  const mock = {
-    postData: {
-      contents: JSON.stringify({
-        submittedAt: "01/07/2026, 6:00:00 pm",
-        name: "Test User",
-        date: "2026-07-01",
-        invoicesCount: 10,
-        invoicesValue: 50000,
-        paymentsCollected: 30000,
-        paymentsPending: 5000,
-        reconStatus: "Completed",
-        reconRemarks: "",
-        pendingTasks: "Follow up with vendor X",
-        notes: "All clear"
-      })
-    }
-  };
-  const result = doPost(mock);
-  Logger.log(result.getContent());
+function jsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function camelCase(str) {
+  return str
+    .toLowerCase()
+    .replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => c.toUpperCase())
+    .replace(/[^a-zA-Z0-9]/g, '');
 }

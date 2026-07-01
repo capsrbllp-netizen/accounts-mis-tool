@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MIS Dashboard — Management View</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #1a56db 0%, #0e3fa5 100%);
+      color: #fff;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header h1 { font-size: 1.3rem; font-weight: 700; }
+    .header p  { font-size: 0.82rem; opacity: 0.85; margin-top: 3px; }
+
+    .btn-refresh {
+      background: rgba(255,255,255,0.18);
+      color: #fff;
+      border: 1.5px solid rgba(255,255,255,0.4);
+      padding: 8px 18px;
+      border-radius: 7px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-refresh:hover { background: rgba(255,255,255,0.28); }
+
+    /* ── Filters ── */
+    .filters {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 14px 32px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filters input, .filters select {
+      padding: 8px 12px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 7px;
+      font-size: 0.88rem;
+      outline: none;
+      background: #f9fafb;
+    }
+    .filters input:focus, .filters select:focus {
+      border-color: #1a56db;
+    }
+    .filters label { font-size: 0.8rem; color: #6b7280; font-weight: 600; }
+
+    /* ── Stats ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      padding: 20px 32px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px 20px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    }
+    .stat-card .label { font-size: 0.72rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-card .value { font-size: 1.6rem; font-weight: 700; color: #111827; margin-top: 4px; }
+    .stat-card .sub   { font-size: 0.75rem; color: #9ca3af; margin-top: 2px; }
+
+    /* ── Table container ── */
+    .table-wrap {
+      padding: 0 32px 40px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      font-size: 0.875rem;
+    }
+
+    thead tr {
+      background: #1a56db;
+      color: #fff;
+    }
+    thead th {
+      padding: 12px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #f3f4f6;
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: #f8faff; }
+    tbody tr:last-child { border-bottom: none; }
+
+    td {
+      padding: 11px 14px;
+      color: #374151;
+      vertical-align: top;
+      max-width: 200px;
+    }
+
+    td.wrap { white-space: pre-wrap; word-break: break-word; }
+    td.nowrap { white-space: nowrap; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-completed { background: #d1fae5; color: #065f46; }
+    .badge-partial   { background: #fef3c7; color: #92400e; }
+    .badge-pending   { background: #fee2e2; color: #991b1b; }
+    .badge-na        { background: #f3f4f6; color: #6b7280; }
+
+    /* ── Remark cell ── */
+    .remark-cell { min-width: 220px; }
+
+    .remark-display {
+      font-size: 0.82rem;
+      color: #374151;
+      margin-bottom: 6px;
+      font-style: italic;
+    }
+    .remark-display.empty { color: #9ca3af; font-style: italic; }
+
+    .remark-form { display: flex; gap: 6px; align-items: flex-start; }
+    .remark-form textarea {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      resize: vertical;
+      min-height: 56px;
+      outline: none;
+      font-family: inherit;
+    }
+    .remark-form textarea:focus { border-color: #1a56db; }
+
+    .btn-save {
+      padding: 6px 12px;
+      background: #1a56db;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s;
+    }
+    .btn-save:hover { opacity: 0.88; }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Loading / empty states ── */
+    .state-box {
+      text-align: center;
+      padding: 60px 20px;
+      color: #9ca3af;
+      font-size: 0.95rem;
+    }
+    .state-box .icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    /* ── Config notice ── */
+    .config-notice {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 0.84rem;
+      color: #9a3412;
+      margin: 20px 32px 0;
+    }
+
+    @media (max-width: 600px) {
+      .header { padding: 16px 20px; }
+      .filters, .stats, .table-wrap { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>📊 MIS Dashboard — Management View</h1>
+    <p id="header-date"></p>
+  </div>
+  <button class="btn-refresh" onclick="loadData()">⟳ Refresh</button>
+</div>
+
+<!-- Config notice — hidden once URL is set -->
+<div class="config-notice" id="config-notice" style="display:none">
+  ⚙️ Apps Script URL not configured. Open dashboard.html and set <code>APPS_SCRIPT_URL</code>.
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div>
+    <label>Date</label><br/>
+    <input type="date" id="filter-date" onchange="applyFilters()" />
+  </div>
+  <div>
+    <label>Employee</label><br/>
+    <select id="filter-name" onchange="applyFilters()">
+      <option value="">All employees</option>
+    </select>
+  </div>
+  <div>
+    <label>Recon Status</label><br/>
+    <select id="filter-recon" onchange="applyFilters()">
+      <option value="">All</option>
+      <option>Completed</option>
+      <option>Partial</option>
+      <option>Pending</option>
+      <option>N/A</option>
+    </select>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat-card">
+    <div class="label">Total Submissions</div>
+    <div class="value" id="stat-total">—</div>
+    <div class="sub">filtered rows</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Invoices Processed</div>
+    <div class="value" id="stat-invoices">—</div>
+    <div class="sub">total count</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Payments Collected</div>
+    <div class="value" id="stat-collected">—</div>
+    <div class="sub">₹ total</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Payments Pending</div>
+    <div class="value" id="stat-pending">—</div>
+    <div class="sub">₹ total</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Recon Completed</div>
+    <div class="value" id="stat-recon">—</div>
+    <div class="sub">of filtered rows</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="table-wrap">
+  <div id="table-container">
+    <div class="state-box"><div class="icon">⏳</div>Loading submissions…</div>
+  </div>
+</div>
+
+<script>
+  // ─── CONFIGURATION ────────────────────────────────────────────────────────
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbywP96Fu0SshIStZ_HcAgfhJryopqq1eS-ag_fvsLUumBBFbOe7r7O0YD2NS8Vd7GzJ/exec";
+  // ─────────────────────────────────────────────────────────────────────────
+
+  let allRows = [];
+
+  document.getElementById('header-date').textContent =
+    new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  // Set default filter to today
+  document.getElementById('filter-date').value = new Date().toISOString().split('T')[0];
+
+  if (!APPS_SCRIPT_URL) {
+    document.getElementById('config-notice').style.display = 'block';
+  } else {
+    loadData();
+  }
+
+  async function loadData() {
+    document.getElementById('table-container').innerHTML =
+      '<div class="state-box"><div class="icon">⏳</div>Loading submissions…</div>';
+
+    try {
+      const url = APPS_SCRIPT_URL + '?action=get&t=' + Date.now();
+      const resp = await fetch(url);
+      const data = await resp.json();
+
+      if (data.status === 'ok') {
+        allRows = data.rows;
+        populateNameFilter();
+        applyFilters();
+      } else {
+        showError('Failed to load data: ' + (data.message || 'Unknown error'));
+      }
+    } catch (err) {
+      showError('Could not reach the server. Make sure the Apps Script is deployed correctly.');
+    }
+  }
+
+  function populateNameFilter() {
+    const sel = document.getElementById('filter-name');
+    const current = sel.value;
+    const names = [...new Set(allRows.map(r => r.name).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">All employees</option>';
+    names.forEach(n => {
+      const o = document.createElement('option');
+      o.value = n; o.textContent = n;
+      sel.appendChild(o);
+    });
+    sel.value = current;
+  }
+
+  function applyFilters() {
+    const date  = document.getElementById('filter-date').value;
+    const name  = document.getElementById('filter-name').value;
+    const recon = document.getElementById('filter-recon').value;
+
+    const filtered = allRows.filter(r => {
+      if (date  && r.date !== date)               return false;
+      if (name  && r.name !== name)               return false;
+      if (recon && r.reconStatus !== recon)       return false;
+      return true;
+    });
+
+    updateStats(filtered);
+    renderTable(filtered);
+  }
+
+  function updateStats(rows) {
+    document.getElementById('stat-total').textContent     = rows.length;
+    document.getElementById('stat-invoices').textContent  = rows.reduce((s,r) => s + (Number(r.invoicesCount)||0), 0);
+    document.getElementById('stat-collected').textContent = '₹' + fmt(rows.reduce((s,r) => s + (Number(r.paymentsCollected)||0), 0));
+    document.getElementById('stat-pending').textContent   = '₹' + fmt(rows.reduce((s,r) => s + (Number(r.paymentsPending)||0), 0));
+    const done = rows.filter(r => r.reconStatus === 'Completed').length;
+    document.getElementById('stat-recon').textContent     = done + ' / ' + rows.length;
+  }
+
+  function fmt(n) {
+    return n.toLocaleString('en-IN');
+  }
+
+  function reconBadge(status) {
+    const map = {
+      'Completed': 'badge-completed',
+      'Partial':   'badge-partial',
+      'Pending':   'badge-pending',
+      'N/A':       'badge-na'
+    };
+    return `<span class="badge ${map[status] || 'badge-na'}">${status || '—'}</span>`;
+  }
+
+  function renderTable(rows) {
+    if (!rows.length) {
+      document.getElementById('table-container').innerHTML =
+        '<div class="state-box"><div class="icon">📭</div>No submissions found for the selected filters.</div>';
+      return;
+    }
+
+    const html = `
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Submitted At</th>
+            <th>Employee</th>
+            <th>Date</th>
+            <th>Invoices</th>
+            <th>Invoice Value (₹)</th>
+            <th>Collected (₹)</th>
+            <th>Pending (₹)</th>
+            <th>Recon</th>
+            <th>Recon Remarks</th>
+            <th>Pending Tasks</th>
+            <th>Notes</th>
+            <th>Management Remark</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r, i) => `
+            <tr>
+              <td class="nowrap">${i + 1}</td>
+              <td class="nowrap">${r.submittedAt || '—'}</td>
+              <td class="nowrap"><strong>${r.name || '—'}</strong></td>
+              <td class="nowrap">${r.date || '—'}</td>
+              <td style="text-align:center">${r.invoicesCount || 0}</td>
+              <td class="nowrap">₹${fmt(Number(r.invoicesValue)||0)}</td>
+              <td class="nowrap">₹${fmt(Number(r.paymentsCollected)||0)}</td>
+              <td class="nowrap">₹${fmt(Number(r.paymentsPending)||0)}</td>
+              <td class="nowrap">${reconBadge(r.reconStatus)}</td>
+              <td class="wrap">${r.reconRemarks || '—'}</td>
+              <td class="wrap">${r.pendingTasks || '—'}</td>
+              <td class="wrap">${r.notes || '—'}</td>
+              <td class="remark-cell">
+                <div class="remark-display ${r.mgmtRemark ? '' : 'empty'}" id="remark-text-${r.rowIndex}">
+                  ${r.mgmtRemark || 'No remark yet'}
+                </div>
+                <div class="remark-form">
+                  <textarea id="remark-input-${r.rowIndex}" placeholder="Add management remark…">${r.mgmtRemark || ''}</textarea>
+                  <button class="btn-save" onclick="saveRemark(${r.rowIndex}, this)">Save</button>
+                </div>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+
+    document.getElementById('table-container').innerHTML = html;
+  }
+
+  async function saveRemark(rowIndex, btn) {
+    const textarea = document.getElementById('remark-input-' + rowIndex);
+    const remark = textarea.value.trim();
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      const formData = new URLSearchParams();
+      formData.append('action', 'remark');
+      formData.append('rowIndex', rowIndex);
+      formData.append('mgmtRemark', remark);
+
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+      });
+
+      // Update display optimistically
+      const display = document.getElementById('remark-text-' + rowIndex);
+      display.textContent = remark || 'No remark yet';
+      display.className = 'remark-display' + (remark ? '' : ' empty');
+
+      // Update local data
+      const row = allRows.find(r => r.rowIndex === rowIndex);
+      if (row) row.mgmtRemark = remark;
+
+      btn.textContent = '✓ Saved';
+      setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 2000);
+    } catch (err) {
+      btn.textContent = 'Error';
+      btn.disabled = false;
+      alert('Failed to save remark. Please try again.');
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('table-container').innerHTML =
+      `<div class="state-box"><div class="icon">⚠️</div>${msg}</div>`;
+  }
+</script>
+</body>
+</html>
