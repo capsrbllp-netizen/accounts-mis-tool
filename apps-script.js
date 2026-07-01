@@ -5,7 +5,7 @@ const SHEET_NAME = "MIS Submissions"; // Change if you want a different tab name
 
 function doPost(e) {
   try {
-    const data = JSON.parse(e.postData.contents);
+    const data = e.parameter;
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     let sheet = ss.getSheetByName(SHEET_NAME);

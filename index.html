@@ -367,19 +367,20 @@
     btn.textContent = 'Submitting…';
 
     try {
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      const result = await resp.json();
+      const formData = new URLSearchParams();
+      Object.entries(payload).forEach(([k, v]) => formData.append(k, v));
 
-      if (result.status === 'ok') {
-        showStatus('success', `✅ MIS submitted successfully by ${name} for ${date}. Thank you!`);
-        document.getElementById('mis-form').reset();
-        dateInput.value = today.toISOString().split('T')[0];
-      } else {
-        showStatus('error', 'Submission failed: ' + (result.message || 'Unknown error'));
-      }
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+      });
+
+      // no-cors means we can't read the response — assume success if no exception
+      showStatus('success', `✅ MIS submitted successfully by ${name} for ${date}. Thank you!`);
+      document.getElementById('mis-form').reset();
+      dateInput.value = today.toISOString().split('T')[0];
     } catch (err) {
       showStatus('error', 'Network error. Please check your connection and try again.');
     } finally {
